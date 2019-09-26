@@ -1,0 +1,132 @@
+//提取轮廓线的边缘提取算法
+void Ransac::FindBoundary(CDisplaypointDoc*pDoc)
+{
+	f = new NormalVector();
+	int k=f->kda;
+	POINT3F CirclePoint;
+	float distance[30000];
+	int *S = new int;
+	int i;
+	float DisTh = 2*alpha; 
+	Data = new PointInfo[pDoc->PointNum];//PointInfo
+	ANNkd_tree *kdTree;
+	ANNpointArray dataPts;
+	ANNidxArray nnIdx2;
+	ANNdistArray dists2;
+	nnIdx2=new ANNidx[k+1];//邻接点的id
+	dists2=new ANNdist[k+1];//和邻接点的距离
+	ANNpoint Pt;
+	Pt=annAllocPt(3);
+	BoundaryPtr=new PointInfo[pDoc->PointNum];//边界点链表
+	NumberBoundary=0;
+	for (i = 0; i < pDoc->PointNum; i++)
+	{
+		Data[i].pt.z=0;
+		Data[i].pt.x=pDoc->PointList[i].x;
+		Data[i].pt.y=pDoc->PointList[i].y;
+	}
+
+	//赋初值
+	dataPts = annAllocPts(pDoc->PointNum,3);							
+	for( i=0;i<pDoc->PointNum;i++)
+	{
+		dataPts[i][0] = Data[i].pt.x;
+		dataPts[i][1] = Data[i].pt.y;
+		dataPts[i][2] = Data[i].pt.z;
+		(BoundaryPtr)[i].info = NULL;
+		(BoundaryPtr)[i].id = -1;
+		(BoundaryPtr)[i].pt.x = (BoundaryPtr)[i].pt.y=(BoundaryPtr)[i].pt.z=0.0;
+	}
+
+	kdTree = new ANNkd_tree(		// build search structure创建搜索结构，把所有的点保存在dataPts中
+		dataPts,					// the data points
+		pDoc->PointNum,	// number of points points Cluster_FileArray.size() Array[1]
+		3);	                      //dimension of space
+
+	for (int j=0;j<pDoc->PointNum;j++)
+	{
+		int n = 0;
+		Pt[0] = Data[j].pt.x;
+		Pt[1] = Data[j].pt.y;
+		Pt[2] = Data[j].pt.z;
+		kdTree->annkSearch(
+			Pt,
+			k+1,
+			nnIdx2,
+			dists2,
+			0.0);	
+		for(int kk=0;kk<k;kk++)
+		{				
+			if((dists2[kk] < DisTh))
+			{
+				S[n] = nnIdx2[kk];
+				n++;										
+			}
+		}		
+		for (int m = 1; m < n; m++)
+		{
+			float ss = 0.0;
+			int sn = 0;
+			ss = (Data[j].pt.x - Data[S[m]].pt.x)*(Data[j].pt.x-Data[S[m]].pt.x)+(Data[j].pt.y-Data[S[m]].pt.y)*(Data[j].pt.y-Data[S[m]].pt.y);
+			CirclePoint.x = (Data[j].pt.x + Data[S[m]].pt.x)/2+ sqrt((alpha*alpha)/ss - 1/4)*(Data[S[m]].pt.y-Data[j].pt.y);
+			CirclePoint.y = (Data[j].pt.y + Data[S[m]].pt.y)/2+ sqrt((alpha*alpha)/ss - 1/4)*(Data[j].pt.x-Data[S[m]].pt.x);
+			for(int p = 1; p < n; p++)
+			{
+				distance[p] = sqrt((Data[S[p]].pt.x - CirclePoint.x)*(Data[S[p]].pt.x - CirclePoint.x)+(Data[S[p]].pt.y - CirclePoint.y)*(Data[S[p]].pt.y - CirclePoint.y));
+				if (distance[p] - alpha >= 0.0)
+				{
+					sn++;
+				}		
+			}
+			if (sn == n-1)
+			{
+				int t = 0;
+				if(NumberBoundary != 0)
+				{
+					for(int Rn = 0; Rn < NumberBoundary; Rn++)
+					{
+						if ((Data[j].pt.x == (BoundaryPtr)[Rn].pt.x) && 
+							(Data[j].pt.y == (BoundaryPtr)[Rn].pt.y) &&
+							(Data[j].pt.z == (BoundaryPtr)[Rn].pt.z))
+						{
+							t = 1;
+						}
+					}
+				}
+				if (t == 0 || NumberBoundary == 0)
+				{
+					(BoundaryPtr)[NumberBoundary+1].pt.x = Data[S[m]].pt.x;
+					(BoundaryPtr)[NumberBoundary+1].pt.y = Data[S[m]].pt.y;
+					(BoundaryPtr)[NumberBoundary+1].pt.z = Data[S[m]].pt.z;
+					NumberBoundary = NumberBoundary +1;
+				}
+			}
+		}
+	}
+	FILE  *fout = NULL;
+	fout = fopen("shapes.obj","wt");
+	if(!fout)
+	{   
+		printf("打开文件错误!");
+		return;
+	}
+	for(int k=0;k<NumberBoundary;k++)
+	{
+		fprintf(fout, "v %f %f %f\n",BoundaryPtr[k].pt.x,BoundaryPtr[k].pt.y,BoundaryPtr[k].pt.z);
+	}  
+	fclose(fout);
+
+}
+void Ransac::DrawBoundary(CDisplaypointDoc*pDoc)
+{
+	glPointSize(2.0);
+	glBegin(GL_POINTS); 
+	for (int i=0;i<NumberBoundary;i++)
+	{
+		{
+			glColor3f(1.0, 0.0, 0.0);
+			glVertex3f((BoundaryPtr)[i].pt.x,(BoundaryPtr)[i].pt.y,(BoundaryPtr)[i].pt.z);
+		}
+	}
+	glEnd();
+}
