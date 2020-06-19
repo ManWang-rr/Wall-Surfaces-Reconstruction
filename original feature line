@@ -1,0 +1,152 @@
+void Ransac::DrawMeanshift(CDisplaypointDoc*pDoc)
+{
+	long start=GetTickCount();
+	double l=0.3,sumx=0,pjx=0,sumy=0,pjy=0;
+	double miny=0,maxy=0,minx=0,maxx=0;
+	int dn=NumberBoundary;//该数据是根据墙的改变而变化的，该值是边界点数
+	int* dx=new int[dn];
+	int* dy=new int[dn];
+	int* pointx=new int[dn];
+	int* pointy=new int[dn];
+	int countx=0,county=0,e=0,b=0;
+	kx=0,ky=0;
+	
+	for(int i=0;i<dn;i++)
+	{
+		glBegin(GL_POINTS);
+		glColor3f(1.0,0.0,0.0);//红
+		glVertex2f((BoundaryPtr)[i].pt.x,(BoundaryPtr)[i].pt.y);
+		glEnd();
+	}
+
+	for(int c=0;c<dn;c++)//以下是根据密集点的平均值来求出线来
+	{
+		if(maxy<(BoundaryPtr)[c].pt.y)
+		{
+			maxy=(BoundaryPtr)[c].pt.y;
+		}else{
+			maxy=maxy;		
+		}
+		if(miny>(BoundaryPtr)[c].pt.y)
+		{
+			miny=(BoundaryPtr)[c].pt.y;
+		}else{
+			miny=miny;		
+		}
+		if(maxx<(BoundaryPtr)[c].pt.x)
+		{
+			maxx=(BoundaryPtr)[c].pt.x;
+		}else{
+			maxx=maxx;		
+		}
+		if(minx>(BoundaryPtr)[c].pt.x)
+		{
+			minx=(BoundaryPtr)[c].pt.x;
+		}else{
+			minx=minx;		
+		}
+	}
+	for(int w=0;w<dn;w++)
+	{
+		pointx[w]=0;
+	}
+	for(int w=0;w<dn;w++)
+	{
+		pointy[w]=0;
+	}
+	//对竖线进行的操作
+	for(int c=0;c<dn;c++)//一个x的值
+	{
+		if(pointx[c]==0)
+		{
+			for(int d=0;d<dn;d++)//另外的x的值与上面x的值进行比较
+			{
+				if(abs((BoundaryPtr)[c].pt.x-(BoundaryPtr)[d].pt.x)<0.02)//0.02(1-5) 0.008(7) 0.01(8-9,10)
+				{
+					countx=countx+1;
+					dx[e]=d;
+					e=e+1;
+				}
+			}
+			if(countx>80/*80 50 14 19 115 9 23 15 2*/)
+			{
+				for(int w=0;w<e;w++)
+				{
+					pointx[dx[w]]=1;
+				}
+				for(int c=0;c<e;c++)
+				{
+					sumx=sumx+(BoundaryPtr)[dx[c]].pt.x;
+				}
+				pjx=sumx/e;
+				coordinatex[kx]=pjx;
+				kx++;
+				glBegin(GL_LINES);
+				glColor3f(0.0,0.0,1.0);//蓝
+				glVertex2f(pjx,maxy+l);
+				glVertex2f(pjx,miny-l);
+				glEnd();
+				e=0;
+				countx=0;
+				sumx=0;
+				pjx=0;
+
+			}else{
+				e=0;
+				countx=0;
+				sumx=0;
+				pjx=0;
+			}
+		}
+	}
+	//对横线进行的操作
+	for(int c=0;c<dn;c++)//一个y的值
+	{
+		if(pointy[c]==0)
+		{
+			for(int d=0;d<dn;d++)//另外的y的值与上面x的值进行比较
+			{
+				if(abs((BoundaryPtr)[c].pt.y-(BoundaryPtr)[d].pt.y)<0.02)//0.02(1-5) 0.01(7-9,10)
+				{
+					county=county+1;
+					dy[b]=d;
+					b=b+1;
+				}
+			}
+			if(county>90/*90 50 29 18 140 70 25 28 3*/)
+			{
+				for(int w=0;w<b;w++)
+				{
+					pointy[dy[w]]=1;
+				}
+				for(int c=0;c<b;c++)
+				{
+					sumy=sumy+(BoundaryPtr)[dy[c]].pt.y;
+				}
+				pjy=sumy/b;
+				coordinatey[ky]=pjy;
+				ky++;
+				glBegin(GL_LINES);
+				glColor3f(0.0,0.0,1.0);//蓝
+				glVertex2f(maxx+l,pjy);
+				glVertex2f(minx-l,pjy);
+				glEnd();
+				b=0;
+				county=0;
+				sumy=0;
+				pjy=0;
+
+			}else{
+				b=0;
+				county=0;
+				sumy=0;
+				pjy=0;
+			}
+		}
+	}
+	delete []dx;
+	delete []dy;
+	delete []pointx;
+	delete []pointy;
+	long stop=GetTickCount();
+}
